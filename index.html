@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cây thông Phú Quốc 6</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0f1a;overflow:hidden;font-family:system-ui,sans-serif;color:#e8ecf5}
+  canvas{display:block;touch-action:none}
+  #ui{position:fixed;left:16px;bottom:16px;display:flex;gap:8px;flex-wrap:wrap}
+  button{background:#1c2438cc;color:#e8ecf5;border:1px solid #3a4666;border-radius:8px;padding:8px 12px;font-size:14px;cursor:pointer}
+  button:hover{background:#2a3552}
+  #load{position:fixed;inset:0;display:grid;place-items:center;font-size:16px;pointer-events:none}
+  #hint{position:fixed;top:12px;left:16px;right:16px;font-size:13px;opacity:.7}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="hint">Kéo để xoay · Cuộn / chụm 2 ngón để zoom · Chuột phải / 2 ngón kéo để di chuyển</div>
+<div id="load">Đang tải mô hình… <span id="pct"></span></div>
+<div id="ui">
+  <button id="reset">Góc ban đầu</button>
+  <button id="spin">Tự xoay: Tắt</button>
+  <button id="bloom">Phát sáng: Bật</button>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0f1a);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 0.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(5, 10, 7); scene.add(sun);
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.01, 500);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.6, 0.4, 0.85);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+const draco = new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/gltf/');
+let home;
+new GLTFLoader().setDRACOLoader(draco).load('tree.glb', gltf => {
+  scene.add(gltf.scene);
+  const box = new THREE.Box3().setFromObject(gltf.scene);
+  const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  const d = Math.max(size.x, size.y, size.z) * 1.6;
+  home = { pos: new THREE.Vector3(c.x + d * 0.6, c.y + d * 0.25, c.z + d * 0.8), target: c };
+  controls.minDistance = d * 0.02; controls.maxDistance = d * 4;
+  resetView();
+  document.getElementById('load').remove();
+}, e => { if (e.total) document.getElementById('pct').textContent = Math.round(e.loaded / e.total * 100) + '%'; },
+  err => { document.getElementById('load').textContent = 'Lỗi tải mô hình: ' + err.message; });
+
+function resetView() { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); }
+document.getElementById('reset').onclick = () => home && resetView();
+document.getElementById('spin').onclick = e => { controls.autoRotate = !controls.autoRotate; e.target.textContent = 'Tự xoay: ' + (controls.autoRotate ? 'Bật' : 'Tắt'); };
+document.getElementById('bloom').onclick = e => { bloom.enabled = !bloom.enabled; e.target.textContent = 'Phát sáng: ' + (bloom.enabled ? 'Bật' : 'Tắt'); };
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+});
+renderer.setAnimationLoop(() => { controls.update(); composer.render(); });
+</script>
+</body>
+</html>
