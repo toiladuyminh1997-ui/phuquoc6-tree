@@ -2,30 +2,64 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cây thông Phú Quốc 6</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Cây thông Phú Quốc</title>
 <style>
-  html,body{margin:0;height:100%;background:#0b0f1a;overflow:hidden;font-family:system-ui,sans-serif;color:#e8ecf5}
-  canvas{display:block;touch-action:none}
-  #ui{position:fixed;left:16px;bottom:16px;display:flex;gap:8px;flex-wrap:wrap}
-  button{background:#1c2438cc;color:#e8ecf5;border:1px solid #3a4666;border-radius:8px;padding:8px 12px;font-size:14px;cursor:pointer}
-  button:hover{background:#2a3552}
-  #load{position:fixed;inset:0;display:grid;place-items:center;font-size:16px;pointer-events:none}
-  #hint{position:fixed;top:12px;left:16px;right:16px;font-size:13px;opacity:.7}
+  :root { --bg:#0b1020; --fg:#f4efe2; --accent:#e8c26a; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family:system-ui,sans-serif; overflow:hidden; }
+  canvas { display:block; touch-action:none; }
+  #loader { position:fixed; inset:0; display:grid; place-items:center; background:var(--bg); z-index:5; transition:opacity .5s; padding:16px; text-align:center; }
+  #loader .bar { width:min(280px,70vw); height:4px; background:#ffffff22; border-radius:2px; overflow:hidden; margin:12px auto 0; }
+  #loader .fill { height:100%; width:0; background:var(--accent); transition:width .2s; }
+  #ui { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); display:flex; gap:8px; z-index:2; flex-wrap:wrap; justify-content:center; width:max-content; max-width:calc(100vw - 32px); }
+  button { background:#00000040; color:var(--fg); border:1px solid #ffffff40; border-radius:999px; padding:10px 14px; font-size:15px; cursor:pointer; backdrop-filter:blur(8px); }
+  button:hover, button.on { background:var(--accent); color:#1a1408; }
+  #help { position:fixed; top:16px; left:16px; z-index:3; background:#0b1020e0; border:1px solid #ffffff30; border-radius:12px; padding:14px 16px; font-size:13px; line-height:1.5; max-width:calc(100vw - 64px); backdrop-filter:blur(8px); }
+  #help[hidden] { display:none; }
+  #help h2 { margin:0 0 8px; font-size:15px; color:var(--accent); }
+  #help table { border-collapse:collapse; }
+  #help td { padding:2px 0; vertical-align:top; }
+  #help td:first-child { padding-right:12px; white-space:nowrap; }
+  #help .close { position:absolute; top:6px; right:6px; padding:2px 9px; font-size:14px; }
+  kbd { display:inline-block; min-width:1.4em; text-align:center; padding:0 5px; border:1px solid #ffffff50; border-bottom-width:2px; border-radius:4px; font:12px/1.5 ui-monospace,monospace; }
 </style>
-<script type="importmap">
-{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
-</script>
 </head>
 <body>
-<div id="hint">Kéo để xoay · Cuộn / chụm 2 ngón để zoom · Chuột phải / 2 ngón kéo để di chuyển</div>
-<div id="load">Đang tải mô hình… <span id="pct"></span></div>
-<div id="ui">
-  <button id="reset">Góc ban đầu</button>
-  <button id="spin">Tự xoay: Tắt</button>
-  <button id="bloom">Phát sáng: Bật</button>
+<div id="loader"><div>Đang tải cây thông… <span id="pct">0%</span><div class="bar"><div class="fill" id="fill"></div></div></div></div>
+<div id="help">
+  <button class="close" id="helpClose" aria-label="Đóng">✕</button>
+  <h2>Hướng dẫn điều khiển</h2>
+  <table>
+    <tr><td>Chuột phải + kéo</td><td>Xoay quanh cây</td></tr>
+    <tr><td>Chuột trái + kéo</td><td>Kéo khung hình</td></tr>
+    <tr><td>Cuộn chuột</td><td>Zoom vào chỗ con trỏ</td></tr>
+    <tr><td>Nhấp đúp</td><td>Lấy nét vào điểm đó</td></tr>
+    <tr><td><kbd>W</kbd> <kbd>S</kbd></td><td>Tiến / lùi</td></tr>
+    <tr><td><kbd>A</kbd> <kbd>D</kbd></td><td>Sang trái / phải</td></tr>
+    <tr><td><kbd>Q</kbd> <kbd>E</kbd></td><td>Xuống / lên</td></tr>
+    <tr><td><kbd>Shift</kbd></td><td>Giữ để đi nhanh</td></tr>
+    <tr><td><kbd>L</kbd></td><td>Bật / tắt đèn trang trí</td></tr>
+    <tr><td><kbd>N</kbd></td><td>Chuyển ngày / đêm</td></tr>
+    <tr><td><kbd>R</kbd></td><td>Đặt lại góc nhìn</td></tr>
+    <tr><td><kbd>H</kbd></td><td>Ẩn / hiện bảng này</td></tr>
+    <tr><td>Điện thoại</td><td>1 ngón xoay · 2 ngón zoom & kéo · chạm đúp lấy nét</td></tr>
+  </table>
 </div>
+<div id="ui">
+  <button id="zin" aria-label="Phóng to">＋</button>
+  <button id="zout" aria-label="Thu nhỏ">－</button>
+  <button id="spin" class="on">Tự xoay</button>
+  <button id="lights" class="on">Đèn</button>
+  <button id="night">Đêm</button>
+  <button id="reset">Đặt lại</button>
+  <button id="helpBtn" aria-label="Hướng dẫn">?</button>
+</div>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -36,53 +70,309 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { MeshSurfaceSampler } from 'three/addons/math/MeshSurfaceSampler.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+// Neutral keeps colours saturated (ACES washed the daytime look out)
+renderer.toneMapping = THREE.NeutralToneMapping;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0f1a);
-scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 0.6));
-const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(5, 10, 7); scene.add(sun);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.01, 500);
+// Vertical gradient backgrounds
+function gradient(top, mid, bottom) {
+  const c = document.createElement('canvas'); c.width = 2; c.height = 512;
+  const g = c.getContext('2d'), lg = g.createLinearGradient(0, 0, 0, 512);
+  lg.addColorStop(0, top); lg.addColorStop(0.55, mid); lg.addColorStop(1, bottom);
+  g.fillStyle = lg; g.fillRect(0, 0, 2, 512);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const day = { bg: gradient('#3f86d6', '#9cc8ef', '#f3e2c4'), exp: 1.05, sun: 3.0, fill: 1.2, hemi: 0.45, env: 0.55, bloom: [0.25, 0.25, 0.9], lamps: 0 };
+const nightCfg = { bg: gradient('#02040c', '#0a1430', '#1a1630'), exp: 1.0, sun: 0.35, fill: 0.5, hemi: 0.2, env: 0.25, bloom: [0.7, 0.3, 0.55], lamps: 0 };
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.01, 5000);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.8;
+controls.zoomToCursor = true;
+controls.zoomSpeed = 1.2;
+controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+let moveSpeed = 1; // set from model size on load
+
+// Key + fill match LGT_key / LGT_fill in PhuQuoc6.blend (Blender Z-up -> three Y-up)
+const sun = new THREE.DirectionalLight(0xffedd1, day.sun);
+sun.position.set(-8, 13.6, 10);
+const fill = new THREE.DirectionalLight(0xcce0ff, day.fill);
+fill.position.set(6.5, 6.3, 12);
+const hemi = new THREE.HemisphereLight(0xbfdcff, 0x6b4a2a, day.hemi);
+scene.add(sun, fill, hemi);
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.6, 0.4, 0.85);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), ...day.bloom);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
-const draco = new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/gltf/');
-let home;
-new GLTFLoader().setDRACOLoader(draco).load('tree.glb', gltf => {
-  scene.add(gltf.scene);
-  const box = new THREE.Box3().setFromObject(gltf.scene);
-  const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
-  const d = Math.max(size.x, size.y, size.z) * 1.6;
-  home = { pos: new THREE.Vector3(c.x + d * 0.6, c.y + d * 0.25, c.z + d * 0.8), target: c };
-  controls.minDistance = d * 0.02; controls.maxDistance = d * 4;
-  resetView();
-  document.getElementById('load').remove();
-}, e => { if (e.total) document.getElementById('pct').textContent = Math.round(e.loaded / e.total * 100) + '%'; },
-  err => { document.getElementById('load').textContent = 'Lỗi tải mô hình: ' + err.message; });
+// Fairy lights: twinkling sprites scattered on the tree surface + a few moving warm lamps
+let lightsOn = true;
+const sparkleMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  uniforms: { uTime: { value: 0 }, uSize: { value: 1 }, uScale: { value: innerHeight / 2 }, uGain: { value: 1 } },
+  vertexShader: `
+    attribute float aPhase; attribute vec3 aColor;
+    uniform float uTime, uSize, uScale;
+    varying vec3 vColor; varying float vTw;
+    void main() {
+      vColor = aColor;
+      vTw = 0.85 + 0.15 * fract(aPhase * 7.3); // steady glow, slight per-bulb variation
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = uSize * uScale / -mv.z * (0.6 + 0.6 * vTw);
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader: `
+    uniform float uGain;
+    varying vec3 vColor; varying float vTw;
+    void main() {
+      // Round LED: small hot core + soft warm halo
+      float d = length(gl_PointCoord - 0.5);
+      float core = smoothstep(0.16, 0.06, d);
+      float halo = exp(-d * d * 30.0) * smoothstep(0.5, 0.3, d);
+      float a = (core + halo * 0.55) * vTw * uGain;
+      if (a < 0.01) discard;
+      vec3 c = mix(vColor, vec3(1.0, 0.97, 0.9), core);
+      gl_FragColor = vec4(c * a, a);
+    }`,
+});
+const PALETTE = ['#ffd27a', '#fff3d1', '#ffb347', '#ffe9a8', '#9fd8ff', '#ff9ec7'].map((c) => new THREE.Color(c));
+let sparkles = null;
+const lamps = [];
+// Replace the faceted TRE_fairy_lights bulbs with round glowing sprites at the same centres
+// (bulbs.json: bulb centres extracted from PhuQuoc6.blend, glTF Y-up)
+async function addBulbs(model, r) {
+  const pts = await (await fetch(new URL('bulbs.json', location.href))).json();
+  model.traverse((o) => { if (o.isMesh && /fairy_lights/i.test(o.name + (o.parent?.name || ''))) o.visible = false; });
+  const N = pts.length / 3, col = new Float32Array(N * 3), ph = new Float32Array(N);
+  const warm = new THREE.Color('#ffd98a');
+  for (let i = 0; i < N; i++) { col.set([warm.r, warm.g, warm.b], i * 3); ph[i] = Math.random(); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pts), 3));
+  g.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+  g.setAttribute('aPhase', new THREE.BufferAttribute(ph, 1));
+  sparkleMat.uniforms.uSize.value = r * 0.02;
+  sparkles = new THREE.Points(g, sparkleMat);
+  sparkles.frustumCulled = false;
+  model.add(sparkles);
+  applyMode();
+}
 
-function resetView() { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); }
-document.getElementById('reset').onclick = () => home && resetView();
-document.getElementById('spin').onclick = e => { controls.autoRotate = !controls.autoRotate; e.target.textContent = 'Tự xoay: ' + (controls.autoRotate ? 'Bật' : 'Tắt'); };
-document.getElementById('bloom').onclick = e => { bloom.enabled = !bloom.enabled; e.target.textContent = 'Phát sáng: ' + (bloom.enabled ? 'Bật' : 'Tắt'); };
+let home = null;
+const draco = new DRACOLoader().setDecoderPath(new URL('draco/', location.href).href);
+const loader = new GLTFLoader().setDRACOLoader(draco);
+function setPct(f) {
+  const p = Math.round(f * 100) + '%';
+  document.getElementById('pct').textContent = p;
+  document.getElementById('fill').style.width = p;
+}
+function onError(err) {
+  console.error(err);
+  document.getElementById('pct').textContent = 'Lỗi tải model: ' + (err && (err.message || err.type) || err);
+}
+// GitHub Pages serves the .glb directly
+loader.load(new URL('PhuQuoc6.glb', location.href).href, onLoad, (e) => { if (e.total) setPct(e.loaded / e.total); }, onError);
+
+const meshes = [];
+const emissive = [];
+function onLoad(g) {
+  const model = g.scene;
+  model.traverse((o) => {
+    if (!o.isMesh) return;
+    meshes.push(o);
+    const m = o.material;
+    if (m && m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0) {
+      m.userData.ei = m.emissiveIntensity; // strength from Blender's Emission Strength
+      emissive.push(m);
+    }
+  });
+  // Scene lights are set up in the page (glTF can't carry Blender's area lights)
+  const imported = [];
+  model.traverse((o) => { if (o.isLight) imported.push(o); });
+  imported.forEach((l) => l.removeFromParent());
+  // Frame on the tree: ignore backdrop-sized meshes (> 40× the median mesh size)
+  const sizes = meshes.map((o) => new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3()).length()).sort((a, b) => a - b);
+  const limit = sizes[Math.floor(sizes.length / 2)] * 40;
+  const box = new THREE.Box3();
+  for (const o of meshes) {
+    const b = new THREE.Box3().setFromObject(o);
+    if (b.getSize(new THREE.Vector3()).length() <= limit) box.union(b);
+  }
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  model.position.sub(center);
+  scene.add(model);
+  const r = size.length() / 2;
+  camera.near = r / 2000; camera.far = r * 50; camera.updateProjectionMatrix();
+  controls.minDistance = r * 0.01;
+  controls.maxDistance = r * 6;
+  moveSpeed = r * 0.5;
+  addBulbs(model, r).catch(console.error);
+  model.updateMatrixWorld(true);
+  // Fairy lights go on the biggest meshes near the tree's axis (foliage, garlands)
+  const treeMeshes = meshes
+    .filter((o) => {
+      const b = new THREE.Box3().setFromObject(o), c = b.getCenter(new THREE.Vector3());
+      return Math.hypot(c.x, c.z) < r * 0.4 && b.max.y > -size.y * 0.2 && o.geometry.index !== undefined;
+    })
+    .sort((a, b) => b.geometry.attributes.position.count - a.geometry.attributes.position.count)
+    .slice(0, 12);
+  home = { pos: new THREE.Vector3(0, size.y * 0.05, r * 2.2), target: new THREE.Vector3() };
+  camera.position.copy(home.pos);
+  controls.target.copy(home.target);
+  applyMode();
+  const l = document.getElementById('loader');
+  l.style.opacity = 0; setTimeout(() => l.remove(), 500);
+}
+
+// Smooth camera flight (focus, buttons, reset)
+let fly = null;
+function flyTo(target, pos) {
+  fly = { t: 0, from: [controls.target.clone(), camera.position.clone()], to: [target, pos] };
+}
+function reset() {
+  if (home) flyTo(home.target.clone(), home.pos.clone());
+}
+function zoom(f) {
+  const d = camera.position.clone().sub(controls.target).multiplyScalar(f);
+  const len = THREE.MathUtils.clamp(d.length(), controls.minDistance, controls.maxDistance);
+  flyTo(controls.target.clone(), controls.target.clone().add(d.setLength(len)));
+}
+function stopSpin() {
+  controls.autoRotate = false;
+  document.getElementById('spin').classList.remove('on');
+}
+// Double-click / double-tap: centre the orbit on the clicked point and move closer
+const ray = new THREE.Raycaster();
+function focusAt(x, y) {
+  ray.setFromCamera(new THREE.Vector2(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1), camera);
+  const hit = ray.intersectObjects(meshes, false)[0];
+  if (!hit) return;
+  stopSpin();
+  const dir = camera.position.clone().sub(controls.target);
+  const dist = Math.max(controls.minDistance * 3, dir.length() * 0.45);
+  flyTo(hit.point.clone(), hit.point.clone().add(dir.setLength(dist)));
+}
+renderer.domElement.addEventListener('dblclick', (e) => focusAt(e.clientX, e.clientY));
+let lastTap = 0;
+renderer.domElement.addEventListener('touchend', (e) => {
+  if (e.changedTouches.length !== 1 || e.touches.length) return;
+  const now = performance.now();
+  if (now - lastTap < 300) { const t = e.changedTouches[0]; focusAt(t.clientX, t.clientY); lastTap = 0; }
+  else lastTap = now;
+});
+
+let isNight = false;
+function applyMode() {
+  const m = isNight ? nightCfg : day;
+  scene.background = m.bg;
+  scene.environmentIntensity = m.env;
+  renderer.toneMappingExposure = m.exp;
+  sun.intensity = m.sun;
+  hemi.intensity = m.hemi;
+  [bloom.strength, bloom.radius, bloom.threshold] = m.bloom;
+  const glow = lightsOn ? 1 : 0;
+  for (const mat of emissive) mat.emissiveIntensity = mat.userData.ei * (isNight ? 1.5 : 1) * glow;
+  fill.intensity = m.fill;
+  for (const l of lamps) l.userData.base = m.lamps * glow * moveSpeed * moveSpeed;
+  sparkleMat.uniforms.uGain.value = (isNight ? 1.1 : 0.8) * glow;
+  if (sparkles) sparkles.visible = lightsOn;
+  document.getElementById('night').classList.toggle('on', isNight);
+  document.getElementById('lights').classList.toggle('on', lightsOn);
+}
+applyMode();
+
+document.getElementById('zin').onclick = () => { stopSpin(); zoom(0.7); };
+document.getElementById('zout').onclick = () => zoom(1.4);
+document.getElementById('reset').onclick = reset;
+document.getElementById('spin').onclick = (e) => {
+  controls.autoRotate = !controls.autoRotate;
+  e.target.classList.toggle('on', controls.autoRotate);
+};
+document.getElementById('night').onclick = () => { isNight = !isNight; applyMode(); };
+document.getElementById('lights').onclick = () => { lightsOn = !lightsOn; applyMode(); };
+const help = document.getElementById('help');
+const toggleHelp = () => { help.hidden = !help.hidden; };
+document.getElementById('helpBtn').onclick = toggleHelp;
+document.getElementById('helpClose').onclick = toggleHelp;
+
+// Keyboard walk: W/S forward-back, A/D strafe, Q/E down-up, Shift = fast
+const keys = new Set();
+addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  if (k === 'h') return toggleHelp();
+  if (k === 'r') return reset();
+  if (k === 'l') return document.getElementById('lights').click();
+  if (k === 'n') return document.getElementById('night').click();
+  if ('wasdqe'.includes(k) && k.length === 1) { keys.add(k); stopSpin(); fly = null; e.preventDefault(); }
+  if (e.key === 'Shift') keys.add('shift');
+});
+addEventListener('keyup', (e) => { keys.delete(e.key.toLowerCase()); if (e.key === 'Shift') keys.delete('shift'); });
+addEventListener('blur', () => keys.clear());
+const fwd = new THREE.Vector3(), right = new THREE.Vector3(), step = new THREE.Vector3();
+function walk(dt) {
+  if (!keys.size) return;
+  camera.getWorldDirection(fwd);
+  right.crossVectors(fwd, camera.up).normalize();
+  step.set(0, 0, 0);
+  if (keys.has('w')) step.add(fwd);
+  if (keys.has('s')) step.sub(fwd);
+  if (keys.has('d')) step.add(right);
+  if (keys.has('a')) step.sub(right);
+  if (keys.has('e')) step.y += 1;
+  if (keys.has('q')) step.y -= 1;
+  if (!step.lengthSq()) return;
+  step.normalize().multiplyScalar(moveSpeed * dt * (keys.has('shift') ? 3 : 1));
+  camera.position.add(step);
+  controls.target.add(step);
+}
+
+controls.addEventListener('start', () => {
+  stopSpin();
+  fly = null;
+});
 
 addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+  sparkleMat.uniforms.uScale.value = innerHeight / 2;
 });
-renderer.setAnimationLoop(() => { controls.update(); composer.render(); });
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  walk(Math.min(clock.getDelta(), 0.1));
+  if (fly) {
+    fly.t = Math.min(1, fly.t + 0.05);
+    const k = 1 - Math.pow(1 - fly.t, 3);
+    controls.target.lerpVectors(fly.from[0], fly.to[0], k);
+    camera.position.lerpVectors(fly.from[1], fly.to[1], k);
+    if (fly.t >= 1) fly = null;
+  }
+  controls.update();
+  const t = clock.elapsedTime;
+  sparkleMat.uniforms.uTime.value = t;
+  for (const l of lamps) {
+    const u = l.userData;
+    l.position.set(Math.cos(u.a) * u.rad, u.h, Math.sin(u.a) * u.rad);
+    l.intensity = u.base || 0;
+  }
+  composer.render();
+});
 </script>
 </body>
 </html>
