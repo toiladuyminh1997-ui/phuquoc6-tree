@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>Cây thông Phú Quốc</title>
 <style>
   :root { --bg:#0b1020; --fg:#f4efe2; --accent:#e8c26a; }
@@ -21,6 +21,15 @@
   #help td { padding:2px 0; vertical-align:top; }
   #help td:first-child { padding-right:12px; white-space:nowrap; }
   #help .close { position:absolute; top:6px; right:6px; padding:2px 9px; font-size:14px; }
+  #ui { bottom:calc(16px + env(safe-area-inset-bottom)); }
+  .touch-only { display:none; }
+  @media (pointer:coarse), (max-width:640px) {
+    #ui { gap:6px; }
+    button { padding:9px 12px; font-size:14px; -webkit-tap-highlight-color:transparent; }
+    #help { top:calc(12px + env(safe-area-inset-top)); left:12px; right:12px; max-width:none; font-size:13px; }
+    #help .desk-only { display:none; }
+    .touch-only { display:table-row; }
+  }
   kbd { display:inline-block; min-width:1.4em; text-align:center; padding:0 5px; border:1px solid #ffffff50; border-bottom-width:2px; border-radius:4px; font:12px/1.5 ui-monospace,monospace; }
 </style>
 </head>
@@ -30,6 +39,7 @@
   <button class="close" id="helpClose" aria-label="Đóng">✕</button>
   <h2>Hướng dẫn điều khiển</h2>
   <table>
+    <tbody class="desk-only">
     <tr><td>Chuột phải + kéo</td><td>Xoay quanh cây</td></tr>
     <tr><td>Chuột trái + kéo</td><td>Kéo khung hình</td></tr>
     <tr><td>Cuộn chuột</td><td>Zoom vào chỗ con trỏ</td></tr>
@@ -42,7 +52,10 @@
     <tr><td><kbd>N</kbd></td><td>Chuyển ngày / đêm</td></tr>
     <tr><td><kbd>R</kbd></td><td>Đặt lại góc nhìn</td></tr>
     <tr><td><kbd>H</kbd></td><td>Ẩn / hiện bảng này</td></tr>
-    <tr><td>Điện thoại</td><td>1 ngón xoay · 2 ngón zoom & kéo · chạm đúp lấy nét</td></tr>
+    </tbody>
+    <tr class="touch-only"><td>1 ngón kéo</td><td>Xoay quanh cây</td></tr>
+    <tr class="touch-only"><td>2 ngón</td><td>Chụm để zoom · kéo để di chuyển</td></tr>
+    <tr class="touch-only"><td>Chạm đúp</td><td>Lấy nét vào điểm đó</td></tr>
   </table>
 </div>
 <div id="ui">
@@ -72,8 +85,10 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { MeshSurfaceSampler } from 'three/addons/math/MeshSurfaceSampler.js';
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// Phones/tablets get the lighter model (1K textures, fewer polygons) and a cheaper render
+const mobile = matchMedia('(pointer:coarse)').matches || Math.min(screen.width, screen.height) <= 820;
+const renderer = new THREE.WebGLRenderer({ antialias: !mobile, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
 renderer.setSize(innerWidth, innerHeight);
 // Neutral keeps colours saturated (ACES washed the daytime look out)
 renderer.toneMapping = THREE.NeutralToneMapping;
@@ -115,7 +130,8 @@ scene.add(sun, fill, hemi);
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), ...day.bloom);
+const bloomScale = mobile ? 0.5 : 1;
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth * bloomScale, innerHeight * bloomScale), ...day.bloom);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -184,7 +200,7 @@ function onError(err) {
   document.getElementById('pct').textContent = 'Lỗi tải model: ' + (err && (err.message || err.type) || err);
 }
 // GitHub Pages serves the .glb directly
-loader.load(new URL('PhuQuoc6.glb', location.href).href, onLoad, (e) => { if (e.total) setPct(e.loaded / e.total); }, onError);
+loader.load(new URL(mobile ? 'PhuQuoc6_mobile.glb' : 'PhuQuoc6.glb', location.href).href, onLoad, (e) => { if (e.total) setPct(e.loaded / e.total); }, onError);
 
 const meshes = [];
 const emissive = [];
@@ -306,6 +322,7 @@ document.getElementById('night').onclick = () => { isNight = !isNight; applyMode
 document.getElementById('lights').onclick = () => { lightsOn = !lightsOn; applyMode(); };
 const help = document.getElementById('help');
 const toggleHelp = () => { help.hidden = !help.hidden; };
+if (mobile) help.hidden = true; // the panel would cover the tree on a small screen; "?" opens it
 document.getElementById('helpBtn').onclick = toggleHelp;
 document.getElementById('helpClose').onclick = toggleHelp;
 
@@ -351,6 +368,7 @@ addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
+  bloom.setSize(innerWidth * bloomScale, innerHeight * bloomScale);
   sparkleMat.uniforms.uScale.value = innerHeight / 2;
 });
 const clock = new THREE.Clock();
