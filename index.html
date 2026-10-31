@@ -30,11 +30,18 @@
     #help .desk-only { display:none; }
     .touch-only { display:table-row; }
   }
+  #tabs { position:fixed; top:calc(16px + env(safe-area-inset-top)); right:16px; z-index:4; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:calc(100vw - 32px); }
+  @media (max-width:640px) { #tabs { left:16px; right:16px; justify-content:center; } #help { top:calc(64px + env(safe-area-inset-top)); } }
   kbd { display:inline-block; min-width:1.4em; text-align:center; padding:0 5px; border:1px solid #ffffff50; border-bottom-width:2px; border-radius:4px; font:12px/1.5 ui-monospace,monospace; }
 </style>
 </head>
 <body>
-<div id="loader"><div>Đang tải cây thông… <span id="pct">0%</span><div class="bar"><div class="fill" id="fill"></div></div></div></div>
+<div id="tabs">
+  <button data-model="phuquoc" class="on">Phú Quốc 6</button>
+  <button data-model="cong2">Cổng 2 Decor</button>
+  <button data-model="safari">Safari Africa 3</button>
+</div>
+<div id="loader"><div>Đang tải mô hình… <span id="pct">0%</span><div class="bar"><div class="fill" id="fill"></div></div></div></div>
 <div id="help">
   <button class="close" id="helpClose" aria-label="Đóng">✕</button>
   <h2>Hướng dẫn điều khiển</h2>
@@ -184,8 +191,17 @@ async function addBulbs(model, r) {
   sparkles = new THREE.Points(g, sparkleMat);
   sparkles.frustumCulled = false;
   model.add(sparkles);
+  model.userData.sparkles = sparkles;
   applyMode();
 }
+
+// Models selectable from the tabs; bulbs.json only belongs to PhuQuoc6
+const MODELS = {
+  phuquoc: { file: mobile ? 'PhuQuoc6_mobile.glb' : 'PhuQuoc6.glb', bulbs: true },
+  cong2: { file: 'cong2.glb' },
+  safari: { file: 'safari.glb' },
+};
+let current = null, loadId = 0;
 
 let home = null;
 const draco = new DRACOLoader().setDecoderPath(new URL('draco/', location.href).href);
@@ -199,13 +215,54 @@ function onError(err) {
   console.error(err);
   document.getElementById('pct').textContent = 'Lỗi tải model: ' + (err && (err.message || err.type) || err);
 }
-// GitHub Pages serves the .glb directly
-loader.load(new URL(mobile ? 'PhuQuoc6_mobile.glb' : 'PhuQuoc6.glb', location.href).href, onLoad, (e) => { if (e.total) setPct(e.loaded / e.total); }, onError);
+function showLoader() {
+  if (document.getElementById('loader')) return;
+  document.body.insertAdjacentHTML('beforeend', '<div id="loader"><div>Đang tải mô hình… <span id="pct">0%</span><div class="bar"><div class="fill" id="fill"></div></div></div></div>');
+}
+function hideLoader() {
+  const l = document.getElementById('loader');
+  if (!l) return;
+  l.style.opacity = 0; setTimeout(() => l.remove(), 500);
+}
 
-const meshes = [];
-const emissive = [];
-function onLoad(g) {
+// Swap the visible model; each one is loaded once and kept for quick switching
+function showModel(key) {
+  const entry = MODELS[key], id = ++loadId;
+  if (current) scene.remove(current.model);
+  current = null;
+  if (entry.state) return activate(entry);
+  showLoader(); setPct(0);
+  // GitHub Pages serves the .glb directly
+  loader.load(new URL(entry.file, location.href).href, (g) => {
+    entry.state = onLoad(g, entry);
+    if (id === loadId) activate(entry);
+  }, (e) => { if (id === loadId && e.total) setPct(e.loaded / e.total); }, onError);
+}
+
+let meshes = [];
+let emissive = [];
+function activate(entry) {
+  const s = entry.state;
+  current = s;
+  meshes = s.meshes; emissive = s.emissive; sparkles = s.model.userData.sparkles || null;
+  scene.add(s.model);
+  camera.near = s.r / 2000; camera.far = s.r * 50; camera.updateProjectionMatrix();
+  controls.minDistance = s.r * 0.01;
+  controls.maxDistance = s.r * 6;
+  moveSpeed = s.r * 0.5;
+  sparkleMat.uniforms.uSize.value = s.r * 0.02;
+  home = s.home;
+  fly = null;
+  camera.position.copy(home.pos);
+  controls.target.copy(home.target);
+  if (entry.bulbs && !s.bulbsAdded) { s.bulbsAdded = true; addBulbs(s.model, s.r).catch(console.error); }
+  applyMode();
+  hideLoader();
+}
+
+function onLoad(g, entry) {
   const model = g.scene;
+  const meshes = [], emissive = [];
   model.traverse((o) => {
     if (!o.isMesh) return;
     meshes.push(o);
@@ -230,28 +287,10 @@ function onLoad(g) {
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
   model.position.sub(center);
-  scene.add(model);
-  const r = size.length() / 2;
-  camera.near = r / 2000; camera.far = r * 50; camera.updateProjectionMatrix();
-  controls.minDistance = r * 0.01;
-  controls.maxDistance = r * 6;
-  moveSpeed = r * 0.5;
-  addBulbs(model, r).catch(console.error);
   model.updateMatrixWorld(true);
-  // Fairy lights go on the biggest meshes near the tree's axis (foliage, garlands)
-  const treeMeshes = meshes
-    .filter((o) => {
-      const b = new THREE.Box3().setFromObject(o), c = b.getCenter(new THREE.Vector3());
-      return Math.hypot(c.x, c.z) < r * 0.4 && b.max.y > -size.y * 0.2 && o.geometry.index !== undefined;
-    })
-    .sort((a, b) => b.geometry.attributes.position.count - a.geometry.attributes.position.count)
-    .slice(0, 12);
-  home = { pos: new THREE.Vector3(0, size.y * 0.05, r * 2.2), target: new THREE.Vector3() };
-  camera.position.copy(home.pos);
-  controls.target.copy(home.target);
-  applyMode();
-  const l = document.getElementById('loader');
-  l.style.opacity = 0; setTimeout(() => l.remove(), 500);
+  const r = size.length() / 2;
+  const home = { pos: new THREE.Vector3(0, size.y * 0.05, r * 2.2), target: new THREE.Vector3() };
+  return { model, meshes, emissive, r, home };
 }
 
 // Smooth camera flight (focus, buttons, reset)
@@ -310,6 +349,16 @@ function applyMode() {
   document.getElementById('lights').classList.toggle('on', lightsOn);
 }
 applyMode();
+
+// The URL hash (#cong2, #safari) opens a model directly, so each one has its own link
+function selectTab(key) {
+  if (!MODELS[key]) key = 'phuquoc';
+  document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x.dataset.model === key));
+  history.replaceState(null, '', key === 'phuquoc' ? location.pathname : '#' + key);
+  showModel(key);
+}
+document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => selectTab(b.dataset.model));
+selectTab(location.hash.slice(1));
 
 document.getElementById('zin').onclick = () => { stopSpin(); zoom(0.7); };
 document.getElementById('zout').onclick = () => zoom(1.4);
