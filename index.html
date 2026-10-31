@@ -207,7 +207,8 @@ let home = null;
 const draco = new DRACOLoader().setDecoderPath(new URL('draco/', location.href).href);
 const loader = new GLTFLoader().setDRACOLoader(draco);
 function setPct(f) {
-  const p = Math.round(f * 100) + '%';
+  // e.total is the gzipped size, so loaded can overshoot it
+  const p = Math.round(Math.min(f, 1) * 100) + '%';
   document.getElementById('pct').textContent = p;
   document.getElementById('fill').style.width = p;
 }
